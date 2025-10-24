@@ -1,49 +1,45 @@
 import os
 from bs4 import BeautifulSoup
-import chm
 
-def extract_chm_to_text(chm_path, out_path):
-    """
-    Extracts text from a CHM file and saves it to a text file.
-    """
+# Path to the folder containing all CHM subfolders
+ROOT_FOLDER = "."  # current folder
+
+def html_to_text(html_path):
+    """Read HTML file and return clean text"""
     try:
-        book = chm.CHMFile(chm_path)
+        with open(html_path, "r", encoding="utf-8") as f:
+            soup = BeautifulSoup(f, "html.parser")
+            text = soup.get_text(separator="\n")
+            # Optional: remove extra blank lines
+            text = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+            return text
     except Exception as e:
-        print(f"❌ Failed to open {chm_path}: {e}")
-        return
+        print(f"⚠️ Error reading {html_path}: {e}")
+        return ""
 
-    all_text = f"\n=== Start of {chm_path} ===\n"
+def process_chm_folder(folder_path):
+    """Convert all HTML files in a folder to one TXT file"""
+    folder_name = os.path.basename(folder_path)
+    output_file = os.path.join(ROOT_FOLDER, folder_name + ".txt")
+    combined_text = f"=== Text from {folder_name} ===\n"
 
-    for file in book.files:
-        if file.lower().endswith((".html", ".htm")):
-            try:
-                data = book.read_file(file)
-                if data:
-                    soup = BeautifulSoup(data, "html.parser")
-                    text = soup.get_text(separator="\n")
-                    all_text += f"\n--- {file} ---\n{text}\n"
-            except Exception as e:
-                print(f"⚠️ Error reading {file}: {e}")
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            if file.lower().endswith((".html", ".htm")):
+                html_path = os.path.join(root, file)
+                combined_text += f"\n--- {file} ---\n"
+                combined_text += html_to_text(html_path) + "\n"
 
-    all_text += f"\n=== End of {chm_path} ===\n"
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(all_text)
-
-    print(f"✅ Extracted {chm_path} → {out_path}")
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(combined_text)
+    print(f"✅ Converted {folder_name} → {output_file}")
 
 def main():
-    chm_files = [f for f in os.listdir(".") if f.lower().endswith(".chm")]
-
-    if not chm_files:
-        print("No CHM files found in the current folder.")
-        return
-
-    print(f"Found {len(chm_files)} CHM file(s): {chm_files}")
-
-    for chm_file in chm_files:
-        txt_file = chm_file.rsplit(".", 1)[0] + ".txt"
-        extract_chm_to_text(chm_file, txt_file)
+    # Find all CHM subfolders in ROOT_FOLDER
+    for item in os.listdir(ROOT_FOLDER):
+        item_path = os.path.join(ROOT_FOLDER, item)
+        if os.path.isdir(item_path):
+            process_chm_folder(item_path)
 
 if __name__ == "__main__":
     main()
